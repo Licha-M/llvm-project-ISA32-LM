@@ -576,6 +576,7 @@ set(LLVM_ALL_TARGETS
   AVR
   BPF
   Hexagon
+  ISA32_LM
   Lanai
   LoongArch
   Mips

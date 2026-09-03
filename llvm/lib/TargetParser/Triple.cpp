@@ -74,6 +74,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
     return "hsail64";
   case hsail:
     return "hsail";
+  case isa32_lm:
+    return "isa32_lm";
   case kalimba:
     return "kalimba";
   case lanai:
@@ -511,6 +513,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
       .Case("spirv", spirv)
       .Case("spirv32", spirv32)
       .Case("spirv64", spirv64)
+      .Case("isa32_lm", isa32_lm)
       .Case("kalimba", kalimba)
       .Case("lanai", lanai)
       .Case("shave", shave)
@@ -662,6 +665,7 @@ Triple::ArchType Triple::parseArch(StringRef ArchName) {
           .Cases({"spirv64", "spirv64v1.0", "spirv64v1.1", "spirv64v1.2",
                   "spirv64v1.3", "spirv64v1.4", "spirv64v1.5", "spirv64v1.6"},
                  Triple::spirv64)
+          .Case("isa32_lm", Triple::isa32_lm)
           .StartsWith("kalimba", Triple::kalimba)
           .Case("lanai", Triple::lanai)
           .Case("renderscript32", Triple::renderscript32)
@@ -971,6 +975,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::hexagon:
   case Triple::hsail64:
   case Triple::hsail:
+  case Triple::isa32_lm:
   case Triple::kalimba:
   case Triple::lanai:
   case Triple::loongarch32:
@@ -1770,6 +1775,7 @@ unsigned Triple::getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::x86:
   case llvm::Triple::xcore:
   case llvm::Triple::xtensa:
+  case llvm::Triple::isa32_lm:
     return 32;
 
   case llvm::Triple::aarch64:
@@ -1881,6 +1887,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::x86:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::isa32_lm:
     // Already 32-bit.
     break;
 
@@ -1965,6 +1972,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::tce:
   case Triple::xcore:
   case Triple::xtensa:
+  case Triple::isa32_lm:
     T.setArch(UnknownArch);
     break;
 
