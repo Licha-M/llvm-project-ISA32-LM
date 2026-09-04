@@ -86,6 +86,7 @@ add_llvm_target(ISA32_LMCodeGen
 # ── Subdirectorios ─────────────────────────────────────────────────────────
 add_subdirectory(MCTargetDesc)
 add_subdirectory(TargetInfo)
-# add_subdirectory(AsmParser)
+add_subdirectory(AsmParser)
 # add_subdirectory(Disassembler)
+
 
