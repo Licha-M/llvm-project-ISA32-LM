@@ -643,7 +643,7 @@ def JMP32_PSEUDO : Pseudo<
 //   2) SLT ADI R15, low16
 //   3) CAL R15
 
-let isCall = 1, hasSideEffects = 1 in
+let isCall = 1, hasSideEffects = 1, Defs = [R1, R2, R3, R4, R5, R6, R7] in
 def CAL32_PSEUDO : Pseudo<
     (outs),
     (ins i32imm:$target),
@@ -702,14 +702,26 @@ def : Pat<(i32 imm:$imm), (LDI32 imm:$imm)>;
 // Valores de 16 bits sin signo → LDI directamente.
 def : Pat<(i32 uimm16_pat:$imm), (LDI (i32 uimm16_pat:$imm))>;
 
+// ─── Accesos a memoria con offset ────────────────────────────────────────
+
+def : Pat<(i32 (extloadi8 (add i32:$rs1_base, simm16_pat:$offset))),
+          (LOD_CHAR GPR:$rs1_base, $offset)>;
+
+def : Pat<(i32 (extloadi16 (add i32:$rs1_base, simm16_pat:$offset))),
+          (LOD_SHORT GPR:$rs1_base, $offset)>;
+
 // ─── Accesos a memoria sin offset (offset = 0) ───────────────────────────
 
 // Carga byte desde puntero directo
 def : Pat<(i32 (zextloadi8 i32:$ptr)),
           (LOD_CHAR GPR:$ptr, 0)>;
+def : Pat<(i32 (extloadi8 i32:$ptr)),
+          (LOD_CHAR GPR:$ptr, 0)>;
 
 // Carga halfword desde puntero directo
 def : Pat<(i32 (zextloadi16 i32:$ptr)),
+          (LOD_SHORT GPR:$ptr, 0)>;
+def : Pat<(i32 (extloadi16 i32:$ptr)),
           (LOD_SHORT GPR:$ptr, 0)>;
 
 // Carga word desde puntero directo
