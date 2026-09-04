@@ -152,6 +152,10 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setLoadExtAction(ISD::ZEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::EXTLOAD, MVT::i32, MVT::i1, Promote);
+  // ── Operaciones Atómicas ─────────────────────────────────────────────────
+  setMaxAtomicSizeInBitsSupported(0);
+  setOperationAction(ISD::ATOMIC_LOAD, MVT::i32, Expand);
+  setOperationAction(ISD::ATOMIC_STORE, MVT::i32, Expand);
 }
 
 const char *ISA32_LMTargetLowering::getTargetNodeName(unsigned Opcode) const {
