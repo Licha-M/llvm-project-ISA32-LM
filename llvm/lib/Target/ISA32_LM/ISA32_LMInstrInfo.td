@@ -756,10 +756,10 @@ def : Pat<(isa32lm_wrapper tjumptable:$in),    (LDI32 tjumptable:$in)>;
 def : Pat<(isa32lm_wrapper tblockaddress:$in), (LDI32 tblockaddress:$in)>;
 
 // ─── Operaciones lógicas sintéticas ───────────────────────────────────────
-// De Morgan: a | b = NOR(NOR(a,a), NOR(b,b))
+// De Morgan: a | b = NOT(NOR(a, b)) = NOR(NOR(a, b), NOR(a, b))
 def : Pat<(or GPR:$rs1, GPR:$rs2),
-          (NOR_RRR (NOR_RRR GPR:$rs1, GPR:$rs1),
-                   (NOR_RRR GPR:$rs2, GPR:$rs2))>;
+          (NOR_RRR (NOR_RRR GPR:$rs1, GPR:$rs2),
+                   (NOR_RRR GPR:$rs1, GPR:$rs2))>;
 
 // // ─── Materialización de FrameIndex ────────────────────────────────────────
 // def : Pat<(i32 tframeindex:$fi),
