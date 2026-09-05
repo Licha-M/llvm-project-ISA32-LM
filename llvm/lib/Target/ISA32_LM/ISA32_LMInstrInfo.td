@@ -120,9 +120,9 @@ def isa32lm_callseq_end   : SDNode<"ISD::CALLSEQ_END",
 // PatLeaf helpers para inmediatos
 //===----------------------------------------------------------------------===//
 
-// Inmediato que cabe en 16 bits sin signo [0, 65535]
+// Inmediato que cabe en 15 bits sin signo [0, 32767] (evita signo extendido negativo en LDI)
 def uimm16_pat : PatLeaf<(imm), [{
-  return isUInt<16>(N->getZExtValue());
+  return isUInt<15>(N->getZExtValue());
 }]>;
 
 // Inmediato que cabe en 16 bits con signo [-32768, 32767]
