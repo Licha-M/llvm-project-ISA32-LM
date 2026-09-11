@@ -97,10 +97,20 @@ bool ISA32_LMRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   // Obtiene el índice del frame y el offset del operando.
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
 
-  // En ISA32_LM la pila crece hacia ARRIBA (Low to High / Stack Grows UP).
-  // Los objetos del marco tienen offsets positivos con respecto al Stack
-  // Pointer (R14).
-  int64_t Offset = MFI.getObjectOffset(FrameIndex) + SPAdj;
+  // En ISA32_LM la pila crece hacia ARRIBA (StackGrowsUp).
+  // Tras el prólogo, R14 apunta al TOPE del marco (R14 = SP_old + FrameSize).
+  //
+  // LLVM asigna ObjectOffset contando desde el FONDO del marco (SP_old),
+  // con LocalAreaOffset=4 por lo que el primer slot usable está en SP_old+4.
+  //
+  // offset_real = ObjectOffset - FrameSize + SPAdj   →  NEGATIVO desde R14
+  //
+  // Ejemplo con FrameSize=20, ObjectOffset=4:
+  //   Offset = 4 - 20 + 0 = -16   →  STR R14, Rx, -16  ✓
+  // Ejemplo con FrameSize=20, ObjectOffset=16:
+  //   Offset = 16 - 20 + 0 = -4   →  STR R14, Rx, -4   ✓
+  int64_t FrameSize = static_cast<int64_t>(MFI.getStackSize());
+  int64_t Offset = MFI.getObjectOffset(FrameIndex) - FrameSize + SPAdj;
 
   unsigned Opcode = MI.getOpcode();
 

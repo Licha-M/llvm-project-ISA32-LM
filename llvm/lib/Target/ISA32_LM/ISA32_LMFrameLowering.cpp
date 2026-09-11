@@ -24,19 +24,38 @@
 #define GET_REGINFO_ENUM
 #include "ISA32_LMGenRegisterInfo.inc"
 #define GET_INSTRINFO_ENUM
-#include "ISA32_LMGenInstrInfo.inc"
 #include "ISA32_LMGenCallingConv.inc"
+#include "ISA32_LMGenInstrInfo.inc"
 
 using namespace llvm;
 
-StackOffset ISA32_LMFrameLowering::getFrameIndexReference(
-    const MachineFunction &MF, int FI, Register &FrameReg) const {
+StackOffset
+ISA32_LMFrameLowering::getFrameIndexReference(const MachineFunction &MF, int FI,
+                                              Register &FrameReg) const {
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   FrameReg = ISA32_LM::R14; // Siempre relativo al Stack Pointer (R14)
-  return StackOffset::getFixed(MFI.getObjectOffset(FI));
+
+  // En ISA32_LM la pila crece hacia ARRIBA (StackGrowsUp).
+  // Tras el prólogo, R14 = SP_old + FrameSize (apunta al TOPE del marco).
+  //
+  // LLVM asigna ObjectOffset contando desde el FONDO del marco (SP_old):
+  //   ObjectOffset=4  → primer slot usable (SP_old+4, dado LocalAreaOffset=4)
+  //   ObjectOffset=8  → segundo slot, etc.
+  //   ObjectOffset=0  → slot RESERVADO para PC que CAL del hijo escribe.
+  //
+  // Para obtener el offset relativo a R14 (tope) hay que restar FrameSize:
+  //   offset_real = ObjectOffset - FrameSize   →  siempre NEGATIVO
+  //
+  // Ejemplo con FrameSize=20:
+  //   ObjectOffset=4  → offset_real = 4 - 20 = -16  → STR R14, Rx, -16  ✓
+  //   ObjectOffset=16 → offset_real = 16 - 20 = -4   → STR R14, Rx, -4   ✓
+  int64_t FrameSize = static_cast<int64_t>(MFI.getStackSize());
+  int64_t Offset = MFI.getObjectOffset(FI) - FrameSize;
+  return StackOffset::getFixed(Offset);
 }
 
-MachineBasicBlock::iterator ISA32_LMFrameLowering::eliminateCallFramePseudoInstr(
+MachineBasicBlock::iterator
+ISA32_LMFrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction & /*MF*/, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {
   // Como los argumentos salientes están reservados estáticamente en la pila
@@ -52,14 +71,27 @@ void ISA32_LMFrameLowering::emitPrologue(MachineFunction &MF,
   MachineBasicBlock::iterator MBBI = MBB.begin();
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
-  uint64_t StackSize = alignTo(MFI.getStackSize(), getStackAlign());
+  uint64_t StackSize = alignTo(MFI.getStackSize() + 4, getStackAlign());
   MFI.setStackSize(StackSize);
 
   if (StackSize == 0)
     return;
 
   // En ISA32_LM la pila crece hacia ARRIBA (StackGrowsUp / Low to High).
-  // El prólogo incrementa R14 en FrameSize.
+  //
+  // Layout del marco tras el prólogo (StackSize = N):
+  //
+  //   R14 (nuevo SP) → [tope, libre para el próximo CAL hijo]
+  //                    [slot N-4] ← offset -4  desde R14  (último callee-saved
+  //                    / var)
+  //                    ...
+  //                    [slot 4]   ← offset -(N-4) desde R14 (primer slot
+  //                    usable)
+  //   SP_old+4  →      [slot 4]   ← LocalAreaOffset=4, primer byte asignado
+  //   SP_old    →      [slot 0]   ← RESERVADO: PC que CAL hijo escribe aquí
+  //
+  // StackSize ya incluye el slot del PC (LocalAreaOffset=4 más el espacio
+  // propio de variables/registros alineado a 4 bytes).
   if (isInt<16>(StackSize)) {
     // Si FrameSize cabe en 16 bits signed, usamos ADI directamente
     BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADI), ISA32_LM::R14)
@@ -87,7 +119,11 @@ void ISA32_LMFrameLowering::emitEpilogue(MachineFunction &MF,
   if (StackSize == 0)
     return;
 
-  // Para liberar la pila al retornar, restamos FrameSize a R14.
+  // Para liberar el marco al retornar, restamos StackSize a R14.
+  // RET luego hace: PC = RAM[R14-4] y SP -= 4, restaurando el SP_old del padre.
+  // (El hardware de RET es: SP -= 4; PC = RAM[SP].)
+  // Restamos el mismo StackSize que sumamos en el prólogo, dejando R14 =
+  // SP_old.
   int64_t NegStackSize = -static_cast<int64_t>(StackSize);
 
   if (isInt<16>(NegStackSize)) {

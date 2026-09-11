@@ -142,6 +142,7 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::UREM, MVT::i32, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   setOperationAction(ISD::BRIND, MVT::Other, Expand);
+  setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8, Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i16, Expand);
@@ -450,6 +451,10 @@ ISA32_LMTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   for (auto &Reg : RegsToPass)
     Ops.push_back(DAG.getRegister(Reg.first, Reg.second.getValueType()));
+
+  const ISA32_LMRegisterInfo *TRI = Subtarget.getRegisterInfo();
+  const uint32_t *Mask = TRI->getCallPreservedMask(MF, CallConv);
+  Ops.push_back(DAG.getRegisterMask(Mask));
 
   if (Glue.getNode())
     Ops.push_back(Glue);

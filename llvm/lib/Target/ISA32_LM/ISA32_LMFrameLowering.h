@@ -1,4 +1,5 @@
-//===-- ISA32_LMFrameLowering.h - Define frame lowering for ISA32_LM --*- C++ -*--===//
+//===-- ISA32_LMFrameLowering.h - Define frame lowering for ISA32_LM --*- C++
+//-*--===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -25,9 +26,14 @@ protected:
 
 public:
   explicit ISA32_LMFrameLowering(const ISA32_LMSubtarget &Subtarget)
-      : TargetFrameLowering(StackGrowsUp,
-                            /*StackAlignment=*/Align(4),
-                            /*LocalAreaOffset=*/0),
+      : TargetFrameLowering(
+            StackGrowsUp,
+            /*StackAlignment=*/Align(4),
+            // LocalAreaOffset=4: reserva el slot en SP_old+0 para el PC
+            // que la instrucción CAL del hijo escribe automáticamente
+            // (CAL guarda PC en RAM[SP] y luego hace SP += 4).
+            // El primer byte usable para variables/registros es SP_old+4.
+            /*LocalAreaOffset=*/4),
         STI(Subtarget) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
@@ -45,9 +51,7 @@ public:
                                      Register &FrameReg) const override;
 
 protected:
-  bool hasFPImpl(const MachineFunction &MF) const override {
-    return false;
-  }
+  bool hasFPImpl(const MachineFunction &MF) const override { return false; }
 };
 
 } // namespace llvm
