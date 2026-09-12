@@ -153,7 +153,7 @@ def RET : Fmt_None<OPC_RET, "RET", [(isa32lm_ret_glue)]>;
 
 // SCL — Llamada al sistema operativo (syscall)
 // Encoding: Tipo=000 OpCode=10110 [23:0]=0
-let hasSideEffects = 1, isCall = 1 in
+let hasSideEffects = 1, isCall = 1, Defs = [R1, R2, R3, R4, R5, R6, R7] in
 def SCL : Fmt_None<OPC_SCL, "SCL", [(isa32lm_scl)]>;
 
 // SRT — Retorno al SO (a la dirección en EPC); uso exclusivo del kernel
@@ -459,7 +459,7 @@ def BRH : Fmt_BRH<
 // El hardware guarda la dirección de retorno internamente (registro de link).
 //===----------------------------------------------------------------------===//
 
-let isCall = 1, hasSideEffects = 1 in
+let isCall = 1, hasSideEffects = 1, Defs = [R1, R2, R3, R4, R5, R6, R7] in
 def CAL : Fmt_RB<OPC_CAL,
     (outs),
     (ins GPR:$rb),
