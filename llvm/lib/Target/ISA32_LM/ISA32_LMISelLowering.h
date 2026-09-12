@@ -1,4 +1,5 @@
-//===-- ISA32_LMISelLowering.h - ISA32_LM DAG Lowering Interface -*- C++ -*-===//
+//===-- ISA32_LMISelLowering.h - ISA32_LM DAG Lowering Interface -*- C++
+//-*-===//
 //
 // Interfaz de TargetLowering para la arquitectura ISA32_LM.
 //
@@ -68,6 +69,7 @@ private:
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerSRA(SDValue Op, SelectionDAG &DAG) const;
 };
 
 } // namespace llvm

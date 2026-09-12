@@ -133,6 +133,7 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
+  setOperationAction(ISD::SRA, MVT::i32, Custom);
   setOperationAction(ISD::SETCC, MVT::i32, Expand);
 
   // Expansiones estándar de 32 bits para operaciones no soportadas directamente
@@ -194,6 +195,8 @@ SDValue ISA32_LMTargetLowering::LowerOperation(SDValue Op,
     return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
     return LowerSELECT_CC(Op, DAG);
+  case ISD::SRA:
+    return LowerSRA(Op, DAG);
   default:
     llvm_unreachable("Opcode de operación no implementado en LowerOperation");
   }
@@ -244,6 +247,38 @@ SDValue ISA32_LMTargetLowering::LowerSELECT_CC(SDValue Op,
   SDValue TargetCCVal = DAG.getTargetConstant(TargetCC, DL, MVT::i32);
   return DAG.getNode(ISA32_LMISD::SELECT_CC, DL, Op.getValueType(), LHS, RHS,
                      TargetCCVal, TrueVal, FalseVal);
+}
+
+SDValue ISA32_LMTargetLowering::LowerSRA(SDValue Op,
+                                         SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  SDValue X = Op.getOperand(0);
+  SDValue N = Op.getOperand(1);
+  EVT VT = Op.getValueType();
+
+  SDValue Const31 = DAG.getConstant(31, DL, VT);
+  SDValue Const32 = DAG.getConstant(32, DL, VT);
+  SDValue Const0  = DAG.getConstant(0, DL, VT);
+
+  // sign_mask = 0 - (x >>> 31)
+  SDValue Shift31 = DAG.getNode(ISD::SRL, DL, VT, X, Const31);
+  SDValue SignMask = DAG.getNode(ISD::SUB, DL, VT, Const0, Shift31);
+
+  // shift_amt = (32 - n) & 31  (Evitamos shift por 32 si n=0, previniendo UB en HW)
+  SDValue Sub32N = DAG.getNode(ISD::SUB, DL, VT, Const32, N);
+  SDValue ShiftAmt = DAG.getNode(ISD::AND, DL, VT, Sub32N, Const31);
+
+  // MaskShifted = sign_mask << shift_amt
+  SDValue MaskShifted = DAG.getNode(ISD::SHL, DL, VT, SignMask, ShiftAmt);
+
+  // ShiftN = x >>> n
+  SDValue ShiftN = DAG.getNode(ISD::SRL, DL, VT, X, N);
+
+  // ComputedRes = (x >>> n) | (sign_mask << shift_amt)
+  SDValue ComputedRes = DAG.getNode(ISD::OR, DL, VT, ShiftN, MaskShifted);
+
+  // Si n == 0, devolvemos X directamente, de lo contrario ComputedRes
+  return DAG.getSelectCC(DL, N, Const0, X, ComputedRes, ISD::SETEQ);
 }
 
 //===----------------------------------------------------------------------===//
