@@ -142,7 +142,7 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SREM, MVT::i32, Expand);
   setOperationAction(ISD::UREM, MVT::i32, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
-  setOperationAction(ISD::BRIND, MVT::Other, Expand);
+  setOperationAction(ISD::BRIND, MVT::Other, Legal);
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i8, Expand);
@@ -154,6 +154,8 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setLoadExtAction(ISD::ZEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::EXTLOAD, MVT::i32, MVT::i1, Promote);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i8,  Expand);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i16, Expand);
   // ── Operaciones Atómicas ─────────────────────────────────────────────────
   setMaxAtomicSizeInBitsSupported(0);
   setOperationAction(ISD::ATOMIC_LOAD, MVT::i32, Expand);

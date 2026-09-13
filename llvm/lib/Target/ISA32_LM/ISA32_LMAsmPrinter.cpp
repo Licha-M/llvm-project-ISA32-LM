@@ -76,24 +76,11 @@ void ISA32_LMAsmPrinter::emitInstruction(const MachineInstr *MI) {
   }
 
   case ISA32_LM::BRH32_PSEUDO: {
-    // 1. Imprimir la instruccion en la consola para depuracion
-    errs() << "DEBUG BRH32: ";
-    MI->print(errs());
-    errs() << "\n";
-
     Register LHS = MI->getOperand(0).getReg();
     Register RHS = MI->getOperand(1).getReg();
 
-    // 2. Auto-deteccion de los indices
     int idxCC = 2;
     int idxTarget = 3;
-
-    // Si el operando 2 es el Bloque Basico (etiqueta) y no el Inmediato, los
-    // invertimos
-    if (MI->getOperand(2).isMBB() || !MI->getOperand(2).isImm()) {
-      idxCC = 3;
-      idxTarget = 2;
-    }
 
     // 3. Extraer los valores con los indices ya corregidos
     int64_t CC = MI->getOperand(idxCC).getImm();

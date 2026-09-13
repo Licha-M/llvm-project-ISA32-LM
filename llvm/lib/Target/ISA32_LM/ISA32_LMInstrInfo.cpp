@@ -145,3 +145,113 @@ bool ISA32_LMInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return false;              //[cite: 6]
   }
 }
+
+bool ISA32_LMInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+                                      MachineBasicBlock *&TBB,
+                                      MachineBasicBlock *&FBB,
+                                      SmallVectorImpl<MachineOperand> &Cond,
+                                      bool AllowModify) const {
+  MachineBasicBlock::iterator I = MBB.end();
+  if (I == MBB.begin())
+    return false;
+  --I;
+  while (I->isDebugInstr()) {
+    if (I == MBB.begin())
+      return false;
+    --I;
+  }
+  if (!I->isTerminator())
+    return false;
+
+  MachineInstr *LastInst = &*I;
+  MachineInstr *SecondLastInst = nullptr;
+  if (I != MBB.begin()) {
+    --I;
+    while (I->isDebugInstr()) {
+      if (I == MBB.begin())
+        break;
+      --I;
+    }
+    if (!I->isDebugInstr() && I->isTerminator())
+      SecondLastInst = &*I;
+  }
+
+  if (!SecondLastInst) {
+    if (LastInst->getOpcode() == ISA32_LM::JMP32_PSEUDO) {
+      TBB = LastInst->getOperand(0).getMBB();
+      return false;
+    }
+    if (LastInst->getOpcode() == ISA32_LM::BRH32_PSEUDO) {
+      Cond.push_back(LastInst->getOperand(0));
+      Cond.push_back(LastInst->getOperand(1));
+      Cond.push_back(LastInst->getOperand(2));
+      TBB = LastInst->getOperand(3).getMBB();
+      return false;
+    }
+    return true;
+  }
+
+  if (SecondLastInst->getOpcode() == ISA32_LM::BRH32_PSEUDO &&
+      LastInst->getOpcode() == ISA32_LM::JMP32_PSEUDO) {
+    Cond.push_back(SecondLastInst->getOperand(0));
+    Cond.push_back(SecondLastInst->getOperand(1));
+    Cond.push_back(SecondLastInst->getOperand(2));
+    TBB = SecondLastInst->getOperand(3).getMBB();
+    FBB = LastInst->getOperand(0).getMBB();
+    return false;
+  }
+
+  return true;
+}
+
+unsigned ISA32_LMInstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                         int *BytesRemoved) const {
+  assert(!BytesRemoved && "Code size not handled");
+  unsigned Count = 0;
+  MachineBasicBlock::iterator I = MBB.end();
+  while (I != MBB.begin()) {
+    --I;
+    if (I->isDebugInstr())
+      continue;
+    if (I->getOpcode() != ISA32_LM::JMP32_PSEUDO &&
+        I->getOpcode() != ISA32_LM::BRH32_PSEUDO)
+      break;
+    I->eraseFromParent();
+    I = MBB.end();
+    ++Count;
+  }
+  return Count;
+}
+
+unsigned ISA32_LMInstrInfo::insertBranch(
+    MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
+    ArrayRef<MachineOperand> Cond, const DebugLoc &DL,
+    int *BytesAdded) const {
+  assert(!BytesAdded && "Code size not handled");
+  if (Cond.empty()) {
+    assert(!FBB && "Unconditional branch with multiple successors!");
+    BuildMI(&MBB, DL, get(ISA32_LM::JMP32_PSEUDO)).addMBB(TBB);
+    return 1;
+  }
+  
+  assert(Cond.size() == 3 && "Condicion de salto invalida");
+  BuildMI(&MBB, DL, get(ISA32_LM::BRH32_PSEUDO))
+      .add(Cond[0])
+      .add(Cond[1])
+      .add(Cond[2])
+      .addMBB(TBB);
+      
+  if (FBB) {
+    BuildMI(&MBB, DL, get(ISA32_LM::JMP32_PSEUDO)).addMBB(FBB);
+    return 2;
+  }
+  return 1;
+}
+
+bool ISA32_LMInstrInfo::reverseBranchCondition(
+    SmallVectorImpl<MachineOperand> &Cond) const {
+  assert(Cond.size() == 3 && "Condicion de salto invalida");
+  int64_t CC = Cond[2].getImm();
+  Cond[2].setImm(CC ^ 1);
+  return false;
+}
