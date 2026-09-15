@@ -44,13 +44,16 @@ ISA32_LMMCInstLower::lowerOperandExpr(const MachineOperand &MO) const {
   case MachineOperand::MO_BlockAddress:
     Sym = Printer.GetBlockAddressSymbol(MO.getBlockAddress());
     break;
+  case MachineOperand::MO_JumpTableIndex:
+    Sym = Printer.GetJTISymbol(MO.getIndex());
+    break;
   default:
     llvm_unreachable("Tipo de operando simbólico no soportado");
   }
 
   const MCExpr *Expr = MCSymbolRefExpr::create(Sym, Ctx);
   if (MO.getType() != MachineOperand::MO_MachineBasicBlock &&
-      MO.getOffset() != 0)
+      MO.getType() != MachineOperand::MO_JumpTableIndex && MO.getOffset() != 0)
     Expr = MCBinaryExpr::createAdd(
         Expr, MCConstantExpr::create(MO.getOffset(), Ctx), Ctx);
 
@@ -75,6 +78,7 @@ void ISA32_LMMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_GlobalAddress:
     case MachineOperand::MO_ExternalSymbol:
     case MachineOperand::MO_BlockAddress:
+    case MachineOperand::MO_JumpTableIndex:
       MCOp = MCOperand::createExpr(lowerOperandExpr(MO));
       break;
     case MachineOperand::MO_RegisterMask:

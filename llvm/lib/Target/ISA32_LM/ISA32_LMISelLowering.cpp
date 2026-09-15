@@ -131,6 +131,7 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
 
   // ── Operaciones con Lowering personalizado en 32 bits ───────────────────
   setOperationAction(ISD::GlobalAddress, MVT::i32, Custom);
+  setOperationAction(ISD::JumpTable, MVT::i32, Custom);
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
   setOperationAction(ISD::SRA, MVT::i32, Custom);
@@ -154,7 +155,7 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setLoadExtAction(ISD::ZEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i1, Promote);
   setLoadExtAction(ISD::EXTLOAD, MVT::i32, MVT::i1, Promote);
-  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i8,  Expand);
+  setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i8, Expand);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i16, Expand);
   // ── Operaciones Atómicas ─────────────────────────────────────────────────
   setMaxAtomicSizeInBitsSupported(0);
@@ -193,6 +194,8 @@ SDValue ISA32_LMTargetLowering::LowerOperation(SDValue Op,
   switch (Op.getOpcode()) {
   case ISD::GlobalAddress:
     return LowerGlobalAddress(Op, DAG);
+  case ISD::JumpTable:
+    return LowerJumpTable(Op, DAG);
   case ISD::BR_CC:
     return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
@@ -211,6 +214,14 @@ SDValue ISA32_LMTargetLowering::LowerGlobalAddress(SDValue Op,
   SDValue TargetAddr = DAG.getTargetGlobalAddress(GA->getGlobal(), DL, MVT::i32,
                                                   GA->getOffset());
   return DAG.getNode(ISA32_LMISD::Wrapper, DL, MVT::i32, TargetAddr);
+}
+
+SDValue ISA32_LMTargetLowering::LowerJumpTable(SDValue Op,
+                                               SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  const JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
+  SDValue TargetJT = DAG.getTargetJumpTable(JT->getIndex(), MVT::i32);
+  return DAG.getNode(ISA32_LMISD::Wrapper, DL, MVT::i32, TargetJT);
 }
 
 SDValue ISA32_LMTargetLowering::LowerBR_CC(SDValue Op,
@@ -251,8 +262,7 @@ SDValue ISA32_LMTargetLowering::LowerSELECT_CC(SDValue Op,
                      TargetCCVal, TrueVal, FalseVal);
 }
 
-SDValue ISA32_LMTargetLowering::LowerSRA(SDValue Op,
-                                         SelectionDAG &DAG) const {
+SDValue ISA32_LMTargetLowering::LowerSRA(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   SDValue X = Op.getOperand(0);
   SDValue N = Op.getOperand(1);
@@ -260,13 +270,14 @@ SDValue ISA32_LMTargetLowering::LowerSRA(SDValue Op,
 
   SDValue Const31 = DAG.getConstant(31, DL, VT);
   SDValue Const32 = DAG.getConstant(32, DL, VT);
-  SDValue Const0  = DAG.getConstant(0, DL, VT);
+  SDValue Const0 = DAG.getConstant(0, DL, VT);
 
   // sign_mask = 0 - (x >>> 31)
   SDValue Shift31 = DAG.getNode(ISD::SRL, DL, VT, X, Const31);
   SDValue SignMask = DAG.getNode(ISD::SUB, DL, VT, Const0, Shift31);
 
-  // shift_amt = (32 - n) & 31  (Evitamos shift por 32 si n=0, previniendo UB en HW)
+  // shift_amt = (32 - n) & 31  (Evitamos shift por 32 si n=0, previniendo UB en
+  // HW)
   SDValue Sub32N = DAG.getNode(ISD::SUB, DL, VT, Const32, N);
   SDValue ShiftAmt = DAG.getNode(ISD::AND, DL, VT, Sub32N, Const31);
 
