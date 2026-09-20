@@ -94,7 +94,7 @@ void ISA32_LMFrameLowering::emitPrologue(MachineFunction &MF,
   // propio de variables/registros alineado a 4 bytes).
   if (isInt<16>(StackSize)) {
     // Si FrameSize cabe en 16 bits signed, usamos ADI directamente
-    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADI), ISA32_LM::R14)
+    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADI_SLT), ISA32_LM::R14)
         .addReg(ISA32_LM::R14)
         .addImm(StackSize);
   } else {
@@ -102,7 +102,7 @@ void ISA32_LMFrameLowering::emitPrologue(MachineFunction &MF,
     // y sumamos R14 += R15 mediante ADD_RRR.
     BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::LDI32), ISA32_LM::R15)
         .addImm(StackSize);
-    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADD_RRR), ISA32_LM::R14)
+    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::SLT_ADD_RRR), ISA32_LM::R14)
         .addReg(ISA32_LM::R14)
         .addReg(ISA32_LM::R15);
   }
@@ -127,13 +127,13 @@ void ISA32_LMFrameLowering::emitEpilogue(MachineFunction &MF,
   int64_t NegStackSize = -static_cast<int64_t>(StackSize);
 
   if (isInt<16>(NegStackSize)) {
-    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADI), ISA32_LM::R14)
+    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADI_SLT), ISA32_LM::R14)
         .addReg(ISA32_LM::R14)
         .addImm(NegStackSize);
   } else {
     BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::LDI32), ISA32_LM::R15)
         .addImm(NegStackSize);
-    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::ADD_RRR), ISA32_LM::R14)
+    BuildMI(MBB, MBBI, DL, TII.get(ISA32_LM::SLT_ADD_RRR), ISA32_LM::R14)
         .addReg(ISA32_LM::R14)
         .addReg(ISA32_LM::R15);
   }
