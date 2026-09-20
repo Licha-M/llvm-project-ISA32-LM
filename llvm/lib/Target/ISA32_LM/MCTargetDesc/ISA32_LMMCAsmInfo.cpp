@@ -30,7 +30,8 @@ ISA32_LMMCAsmInfo::ISA32_LMMCAsmInfo(const Triple & /*TheTriple*/,
   // Debe coincidir con CommentDelimiter = ";" ya declarado en ISA32_LM.td.
   CommentString = ";";
 
-  // Alineación de instrucciones: ISA32_LM usa instrucciones de 32 bits alineadas a 4 bytes
+  // Alineación de instrucciones: ISA32_LM usa instrucciones de 32 bits
+  // alineadas a 4 bytes
   MinInstAlignment = 4;
 
   // Directiva de alineación: usar .p2align (GNU-style) en vez de .align
@@ -44,6 +45,8 @@ ISA32_LMMCAsmInfo::ISA32_LMMCAsmInfo(const Triple & /*TheTriple*/,
 
   // Prefijo de símbolos locales (etiquetas temporales)
   InternalSymbolPrefix = ".L";
+
+  UseIntegratedAssembler = false;
 }
 
 void ISA32_LMMCAsmInfo::printSpecifierExpr(raw_ostream &OS,

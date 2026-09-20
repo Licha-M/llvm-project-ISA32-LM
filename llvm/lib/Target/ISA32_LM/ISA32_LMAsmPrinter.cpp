@@ -16,6 +16,7 @@
 #include "MCTargetDesc/ISA32_LMMCTargetDesc.h"
 #include "TargetInfo/ISA32_LMTargetInfo.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -124,6 +125,25 @@ void ISA32_LMAsmPrinter::emitInstruction(const MachineInstr *MI) {
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
   OutStreamer->emitInstruction(TmpInst, STI);
+}
+
+bool ISA32_LMAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                                         const char *ExtraCode,
+                                         raw_ostream &OS) {
+  if (ExtraCode && ExtraCode[0])
+    return AsmPrinter::PrintAsmOperand(MI, OpNo, ExtraCode, OS);
+
+  const MachineOperand &MO = MI->getOperand(OpNo);
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    OS << MF->getSubtarget().getRegisterInfo()->getName(MO.getReg());
+    return false;
+  case MachineOperand::MO_Immediate:
+    OS << MO.getImm();
+    return false;
+  default:
+    return true;
+  }
 }
 
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void

@@ -24,11 +24,11 @@ public:
                               std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer)) {}
 
-  StringRef getPassName() const override {
-    return "ISA32_LM Assembly Printer";
-  }
+  StringRef getPassName() const override { return "ISA32_LM Assembly Printer"; }
 
   void emitInstruction(const MachineInstr *MI) override;
+  bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                       const char *ExtraCode, raw_ostream &OS) override;
 };
 
 } // namespace llvm

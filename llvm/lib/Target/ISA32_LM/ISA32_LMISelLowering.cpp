@@ -361,16 +361,16 @@ MachineBasicBlock *ISA32_LMTargetLowering::EmitInstrWithCustomInserter(
         .addReg(LHSReg)
         .addReg(RHSReg)
         .addImm(CCCode)
-        .addMBB(copy0MBB);
+        .addMBB(sinkMBB); // antes: copy0MBB
 
     copy0MBB->addSuccessor(sinkMBB);
 
     // Insertar el nodo PHI en sinkMBB para elegir el valor final
     BuildMI(*sinkMBB, sinkMBB->begin(), DL, TII.get(TargetOpcode::PHI), DstReg)
         .addReg(TrueReg)
-        .addMBB(copy0MBB)
+        .addMBB(thisMBB) // antes: copy0MBB
         .addReg(FalseReg)
-        .addMBB(thisMBB);
+        .addMBB(copy0MBB); // antes: thisMBB
 
     MI.eraseFromParent();
     return sinkMBB;
@@ -561,7 +561,7 @@ ISA32_LMTargetLowering::getRegForInlineAsmConstraint(
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
     case 'r':
-      return std::make_pair(0U, &ISA32_LM::GPRRegClass);
+      return std::make_pair(0U, &ISA32_LM::GPR32RegClass);
     default:
       break;
     }
