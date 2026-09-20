@@ -690,6 +690,15 @@ let usesCustomInserter = 1, isCodeGenOnly = 1 in {
                           i32:$tval, i32:$fval))]>;
 }
 
+// ─── MULHU: parte alta de una multiplicación sin signo (MUL + GOF) ────────
+let usesCustomInserter = 1, isCodeGenOnly = 1 in {
+  def MULHU_PSEUDO : Pseudo<
+      (outs GPR:$dst),
+      (ins GPR:$rs1, GPR:$rs2),
+      "# MULHU_PSEUDO $dst = hi32($rs1 * $rs2)",
+      [(set i32:$dst, (mulhu i32:$rs1, i32:$rs2))]>;
+}
+
 //===----------------------------------------------------------------------===//
 // Patrones DAG adicionales
 //===----------------------------------------------------------------------===//

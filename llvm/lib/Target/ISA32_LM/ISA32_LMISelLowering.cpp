@@ -303,54 +303,79 @@ MachineBasicBlock *ISA32_LMTargetLowering::EmitInstrWithCustomInserter(
   const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
-  assert(MI.getOpcode() == ISA32_LM::SELECT_CC &&
-         "Instrucción no esperada en Custom Inserter");
+  switch (MI.getOpcode()) {
+  default:
+    llvm_unreachable("Instrucción no esperada en Custom Inserter");
 
-  Register DstReg = MI.getOperand(0).getReg();
-  Register LHSReg = MI.getOperand(1).getReg();
-  Register RHSReg = MI.getOperand(2).getReg();
-  unsigned CCCode = MI.getOperand(3).getImm();
-  Register TrueReg = MI.getOperand(4).getReg();
-  Register FalseReg = MI.getOperand(5).getReg();
+  case ISA32_LM::MULHU_PSEUDO: {
+    Register DstReg = MI.getOperand(0).getReg();
+    Register Rs1Reg = MI.getOperand(1).getReg();
+    Register Rs2Reg = MI.getOperand(2).getReg();
 
-  MachineFunction *F = BB->getParent();
-  MachineFunction::iterator It = ++BB->getIterator();
+    // Registro descartable para la parte baja del producto (no nos interesa,
+    // solo necesitamos que MUL corra justo antes de GOF).
+    Register LoDummy =
+        MI.getMF()->getRegInfo().createVirtualRegister(&ISA32_LM::GPRRegClass);
 
-  MachineBasicBlock *thisMBB = BB;
-  MachineBasicBlock *copy0MBB = F->CreateMachineBasicBlock(BB->getBasicBlock());
-  MachineBasicBlock *sinkMBB = F->CreateMachineBasicBlock(BB->getBasicBlock());
+    BuildMI(*BB, MI, DL, TII.get(ISA32_LM::MUL_RRR), LoDummy)
+        .addReg(Rs1Reg)
+        .addReg(Rs2Reg);
+    BuildMI(*BB, MI, DL, TII.get(ISA32_LM::GOF), DstReg);
 
-  F->insert(It, copy0MBB);
-  F->insert(It, sinkMBB);
+    MI.eraseFromParent();
+    return BB;
+  }
 
-  // Mover el resto de instrucciones después de MI de thisMBB a sinkMBB
-  sinkMBB->splice(sinkMBB->begin(), thisMBB,
-                  std::next(MachineBasicBlock::iterator(MI)), thisMBB->end());
-  sinkMBB->transferSuccessorsAndUpdatePHIs(thisMBB);
+  case ISA32_LM::SELECT_CC: {
+    Register DstReg = MI.getOperand(0).getReg();
+    Register LHSReg = MI.getOperand(1).getReg();
+    Register RHSReg = MI.getOperand(2).getReg();
+    unsigned CCCode = MI.getOperand(3).getImm();
+    Register TrueReg = MI.getOperand(4).getReg();
+    Register FalseReg = MI.getOperand(5).getReg();
 
-  // Configurar los sucesores de los bloques
-  thisMBB->addSuccessor(copy0MBB);
-  thisMBB->addSuccessor(sinkMBB);
+    MachineFunction *F = BB->getParent();
+    MachineFunction::iterator It = ++BB->getIterator();
 
-  // Insertar el branch condicional en thisMBB: si la condición se cumple, salta
-  // a copy0MBB
-  BuildMI(thisMBB, DL, TII.get(ISA32_LM::BRH32_PSEUDO))
-      .addReg(LHSReg)
-      .addReg(RHSReg)
-      .addImm(CCCode)
-      .addMBB(copy0MBB);
+    MachineBasicBlock *thisMBB = BB;
+    MachineBasicBlock *copy0MBB =
+        F->CreateMachineBasicBlock(BB->getBasicBlock());
+    MachineBasicBlock *sinkMBB =
+        F->CreateMachineBasicBlock(BB->getBasicBlock());
 
-  copy0MBB->addSuccessor(sinkMBB);
+    F->insert(It, copy0MBB);
+    F->insert(It, sinkMBB);
 
-  // Insertar el nodo PHI en sinkMBB para elegir el valor final
-  BuildMI(*sinkMBB, sinkMBB->begin(), DL, TII.get(TargetOpcode::PHI), DstReg)
-      .addReg(TrueReg)
-      .addMBB(copy0MBB)
-      .addReg(FalseReg)
-      .addMBB(thisMBB);
+    // Mover el resto de instrucciones después de MI de thisMBB a sinkMBB
+    sinkMBB->splice(sinkMBB->begin(), thisMBB,
+                    std::next(MachineBasicBlock::iterator(MI)), thisMBB->end());
+    sinkMBB->transferSuccessorsAndUpdatePHIs(thisMBB);
 
-  MI.eraseFromParent();
-  return sinkMBB;
+    // Configurar los sucesores de los bloques
+    thisMBB->addSuccessor(copy0MBB);
+    thisMBB->addSuccessor(sinkMBB);
+
+    // Insertar el branch condicional en thisMBB: si la condición se cumple,
+    // salta a copy0MBB
+    BuildMI(thisMBB, DL, TII.get(ISA32_LM::BRH32_PSEUDO))
+        .addReg(LHSReg)
+        .addReg(RHSReg)
+        .addImm(CCCode)
+        .addMBB(copy0MBB);
+
+    copy0MBB->addSuccessor(sinkMBB);
+
+    // Insertar el nodo PHI en sinkMBB para elegir el valor final
+    BuildMI(*sinkMBB, sinkMBB->begin(), DL, TII.get(TargetOpcode::PHI), DstReg)
+        .addReg(TrueReg)
+        .addMBB(copy0MBB)
+        .addReg(FalseReg)
+        .addMBB(thisMBB);
+
+    MI.eraseFromParent();
+    return sinkMBB;
+  }
+  }
 }
 
 //===----------------------------------------------------------------------===//
@@ -528,4 +553,18 @@ ISA32_LMTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   }
 
   return Chain;
+}
+
+std::pair<unsigned, const TargetRegisterClass *>
+ISA32_LMTargetLowering::getRegForInlineAsmConstraint(
+    const TargetRegisterInfo *TRI, StringRef Constraint, MVT VT) const {
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'r':
+      return std::make_pair(0U, &ISA32_LM::GPRRegClass);
+    default:
+      break;
+    }
+  }
+  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
 }
