@@ -474,6 +474,8 @@ ISA32_LMTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   CallingConv::ID CallConv = CLI.CallConv;
   bool IsVarArg = CLI.IsVarArg;
 
+  CLI.IsTailCall = false;
+
   MachineFunction &MF = DAG.getMachineFunction();
 
   SmallVector<CCValAssign, 16> ArgLocs;
