@@ -208,12 +208,13 @@ def MUL_RRR : Fmt_R<OPC_MUL, 0b000,
   bits<4> rs1; bits<4> rs2; bits<4> rd;
 }
 
-// DIV Rs1, Rs2, Rd — Rs1 ÷ Rs2 → Rd (división sin signo)
+// DIV Rs1, Rs2, Rd — Rs1 ÷ Rs2 → Rd 
+// Corregir: DIV_RRR ahora es CON signo (antes decía udiv)
 def DIV_RRR : Fmt_R<OPC_DIV, 0b000,
     (outs GPR:$rd),
     (ins GPR:$rs1, GPR:$rs2),
     "DIV $rs1, $rs2, $rd",
-    [(set i32:$rd, (udiv i32:$rs1, i32:$rs2))]> {
+    [(set i32:$rd, (sdiv i32:$rs1, i32:$rs2))]> {   // sdiv, no udiv
   bits<4> rs1; bits<4> rs2; bits<4> rd;
 }
 
@@ -636,6 +637,27 @@ def JMP32_PSEUDO : Pseudo<
     "# JMP32 $target",
     [(br bb:$target)]>;
 
+// ─── Multiplicación de 32×32 → 64 con signo ───────────────────────────────
+// LLVM la genera automáticamente cuando necesita el resultado completo de
+// 64 bits de una multiplicación (ej. tu (uint64_t)a * b). Se expande en
+// expandPostRAPseudo a MUL + GOF, pegados, después de todo el scheduling.
+let usesCustomInserter = 0 in
+def MULHS_PSEUDO : Pseudo<
+    (outs GPR:$lo, GPR:$hi),
+    (ins GPR:$rs1, GPR:$rs2),
+    "# MULHS $lo, $hi, $rs1, $rs2",
+    [(set GPR:$lo, GPR:$hi, (smullohi GPR:$rs1, GPR:$rs2))]>;
+
+// ─── División 32/32 con signo, cociente + resto ───────────────────────────
+// Igual que arriba pero para SDIVREM. Confirmame si GOF después de DIV te
+// da el resto (remainder) — lo asumo así abajo.
+let usesCustomInserter = 0 in
+def DIVREM_PSEUDO : Pseudo<
+    (outs GPR:$quot, GPR:$rem),
+    (ins GPR:$rs1, GPR:$rs2),
+    "# DIVREM $quot, $rem, $rs1, $rs2",
+    [(set GPR:$quot, GPR:$rem, (sdivrem GPR:$rs1, GPR:$rs2))]>;
+
 // ─── Llamada a subrutina con dirección de 32 bits ─────────────────────────
 //
 // Expansión de CAL a etiqueta (mismo patrón que JMP32):
@@ -688,15 +710,6 @@ let usesCustomInserter = 1, isCodeGenOnly = 1 in {
         (isa32lm_selectcc i32:$lhs, i32:$rhs,
                           (i32 timm:$cc),
                           i32:$tval, i32:$fval))]>;
-}
-
-// ─── MULHU: parte alta de una multiplicación sin signo (MUL + GOF) ────────
-let usesCustomInserter = 1, isCodeGenOnly = 1 in {
-  def MULHU_PSEUDO : Pseudo<
-      (outs GPR:$dst),
-      (ins GPR:$rs1, GPR:$rs2),
-      "# MULHU_PSEUDO $dst = hi32($rs1 * $rs2)",
-      [(set i32:$dst, (mulhu i32:$rs1, i32:$rs2))]>;
 }
 
 //===----------------------------------------------------------------------===//

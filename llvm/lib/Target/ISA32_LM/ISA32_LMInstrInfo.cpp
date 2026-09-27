@@ -138,6 +138,31 @@ bool ISA32_LMInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent(); //[cite: 6]
     return true;          //[cite: 6]
   }
+  case ISA32_LM::MULHS_PSEUDO: {
+    Register Lo = MI.getOperand(0).getReg();
+    Register Hi = MI.getOperand(1).getReg();
+    Register Rs1 = MI.getOperand(2).getReg();
+    Register Rs2 = MI.getOperand(3).getReg();
+
+    BuildMI(MBB, MI, DL, get(ISA32_LM::MUL_RRR), Lo).addReg(Rs1).addReg(Rs2);
+    BuildMI(MBB, MI, DL, get(ISA32_LM::GOF), Hi);
+
+    MI.eraseFromParent();
+    return true;
+  }
+
+  case ISA32_LM::DIVREM_PSEUDO: {
+    Register Quot = MI.getOperand(0).getReg();
+    Register Rem = MI.getOperand(1).getReg();
+    Register Rs1 = MI.getOperand(2).getReg();
+    Register Rs2 = MI.getOperand(3).getReg();
+
+    BuildMI(MBB, MI, DL, get(ISA32_LM::DIV_RRR), Quot).addReg(Rs1).addReg(Rs2);
+    BuildMI(MBB, MI, DL, get(ISA32_LM::GOF), Rem);
+
+    MI.eraseFromParent();
+    return true;
+  }
 
   case ISA32_LM::JMP32_PSEUDO: //[cite: 6]
   case ISA32_LM::CAL32_PSEUDO: //[cite: 6]
@@ -225,22 +250,21 @@ unsigned ISA32_LMInstrInfo::removeBranch(MachineBasicBlock &MBB,
 
 unsigned ISA32_LMInstrInfo::insertBranch(
     MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
-    ArrayRef<MachineOperand> Cond, const DebugLoc &DL,
-    int *BytesAdded) const {
+    ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
   assert(!BytesAdded && "Code size not handled");
   if (Cond.empty()) {
     assert(!FBB && "Unconditional branch with multiple successors!");
     BuildMI(&MBB, DL, get(ISA32_LM::JMP32_PSEUDO)).addMBB(TBB);
     return 1;
   }
-  
+
   assert(Cond.size() == 3 && "Condicion de salto invalida");
   BuildMI(&MBB, DL, get(ISA32_LM::BRH32_PSEUDO))
       .add(Cond[0])
       .add(Cond[1])
       .add(Cond[2])
       .addMBB(TBB);
-      
+
   if (FBB) {
     BuildMI(&MBB, DL, get(ISA32_LM::JMP32_PSEUDO)).addMBB(FBB);
     return 2;

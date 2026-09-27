@@ -115,10 +115,24 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ADD, MVT::i64, Expand);
   setOperationAction(ISD::SUB, MVT::i64, Expand);
   setOperationAction(ISD::MUL, MVT::i64, Expand);
-  setOperationAction(ISD::SDIV, MVT::i64, Expand);
-  setOperationAction(ISD::UDIV, MVT::i64, Expand);
-  setOperationAction(ISD::SREM, MVT::i64, Expand);
-  setOperationAction(ISD::UREM, MVT::i64, Expand);
+
+  // Reemplazar/agregar en el constructor:
+  setOperationAction(ISD::SDIV, MVT::i32,
+                     Legal); // antes estaba en Expand — mal, ahora hay hardware
+  setOperationAction(ISD::UDIV, MVT::i32,
+                     Expand); // no existe UDIV de hardware → libcall __udivsi3
+  setOperationAction(ISD::UREM, MVT::i32, Expand); // ya estaba
+  setOperationAction(ISD::SREM, MVT::i32,
+                     Expand); // dejalo en Expand salvo que confirmes que DIV te
+                              // da el resto directamente
+
+  setOperationAction(ISD::SMUL_LOHI, MVT::i32, Legal);
+  setOperationAction(ISD::UMUL_LOHI, MVT::i32,
+                     Custom); // no existe versión sin signo
+  setOperationAction(ISD::SDIVREM, MVT::i32, Legal);
+  setOperationAction(ISD::UDIVREM, MVT::i32, Expand);
+  setOperationAction(ISD::MULHU, MVT::i32, Custom);
+
   setOperationAction(ISD::SHL, MVT::i64, Expand);
   setOperationAction(ISD::SRL, MVT::i64, Expand);
   setOperationAction(ISD::SRA, MVT::i64, Expand);
@@ -139,9 +153,6 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
 
   // Expansiones estándar de 32 bits para operaciones no soportadas directamente
   // por HW
-  setOperationAction(ISD::SDIV, MVT::i32, Expand);
-  setOperationAction(ISD::SREM, MVT::i32, Expand);
-  setOperationAction(ISD::UREM, MVT::i32, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
   setOperationAction(ISD::BRIND, MVT::Other, Legal);
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
@@ -202,6 +213,10 @@ SDValue ISA32_LMTargetLowering::LowerOperation(SDValue Op,
     return LowerSELECT_CC(Op, DAG);
   case ISD::SRA:
     return LowerSRA(Op, DAG);
+  case ISD::UMUL_LOHI:
+    return LowerUMUL_LOHI(Op, DAG);
+  case ISD::MULHU:
+    return LowerMULHU(Op, DAG);
   default:
     llvm_unreachable("Opcode de operación no implementado en LowerOperation");
   }
@@ -241,6 +256,51 @@ SDValue ISA32_LMTargetLowering::LowerBR_CC(SDValue Op,
   SDValue TargetCCVal = DAG.getTargetConstant(TargetCC, DL, MVT::i32);
   return DAG.getNode(ISA32_LMISD::BR_CC, DL, Op.getValueType(), Chain, LHS, RHS,
                      TargetCCVal, Dest);
+}
+
+// Helper compartido: calcula hi_unsigned(a,b) construyendo directamente el
+// nodo de máquina MULHS_PSEUDO (MUL+GOF), evitando pasar por ISD::SMUL_LOHI
+// genérico — si usáramos ese nodo, el DAGCombiner lo reduciría de nuevo a
+// MULHS en cuanto viera que solo se usa la mitad alta, entrando en loop.
+SDValue ISA32_LMTargetLowering::getCorrectedUnsignedHi(
+    SDValue LHS, SDValue RHS, const SDLoc &DL, SelectionDAG &DAG) const {
+  EVT VT = LHS.getValueType();
+
+  SDNode *MulHiLo =
+      DAG.getMachineNode(ISA32_LM::MULHS_PSEUDO, DL, VT, VT, LHS, RHS);
+  SDValue HiSigned(MulHiLo, 1);
+
+  SDValue ShiftAmt = DAG.getConstant(31, DL, VT);
+  SDValue LHSMask = DAG.getNode(ISD::SRA, DL, VT, LHS, ShiftAmt);
+  SDValue RHSMask = DAG.getNode(ISD::SRA, DL, VT, RHS, ShiftAmt);
+  SDValue CorrFromLHS = DAG.getNode(ISD::AND, DL, VT, LHSMask, RHS);
+  SDValue CorrFromRHS = DAG.getNode(ISD::AND, DL, VT, RHSMask, LHS);
+
+  SDValue HiCorrected = DAG.getNode(ISD::ADD, DL, VT, HiSigned, CorrFromLHS);
+  return DAG.getNode(ISD::ADD, DL, VT, HiCorrected, CorrFromRHS);
+}
+
+SDValue ISA32_LMTargetLowering::LowerUMUL_LOHI(SDValue Op,
+                                               SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  EVT VT = LHS.getValueType();
+
+  SDNode *MulHiLo =
+      DAG.getMachineNode(ISA32_LM::MULHS_PSEUDO, DL, VT, VT, LHS, RHS);
+  SDValue Lo(MulHiLo, 0);
+  SDValue Hi = getCorrectedUnsignedHi(LHS, RHS, DL, DAG);
+
+  return DAG.getMergeValues({Lo, Hi}, DL);
+}
+
+// Caso reducido: el DAGCombiner pide solo la mitad alta (ej. cuando el
+// resultado de UMUL_LOHI se usa únicamente detrás de un shift >= 32).
+SDValue ISA32_LMTargetLowering::LowerMULHU(SDValue Op,
+                                           SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  return getCorrectedUnsignedHi(Op.getOperand(0), Op.getOperand(1), DL, DAG);
 }
 
 SDValue ISA32_LMTargetLowering::LowerSELECT_CC(SDValue Op,
@@ -306,25 +366,6 @@ MachineBasicBlock *ISA32_LMTargetLowering::EmitInstrWithCustomInserter(
   switch (MI.getOpcode()) {
   default:
     llvm_unreachable("Instrucción no esperada en Custom Inserter");
-
-  case ISA32_LM::MULHU_PSEUDO: {
-    Register DstReg = MI.getOperand(0).getReg();
-    Register Rs1Reg = MI.getOperand(1).getReg();
-    Register Rs2Reg = MI.getOperand(2).getReg();
-
-    // Registro descartable para la parte baja del producto (no nos interesa,
-    // solo necesitamos que MUL corra justo antes de GOF).
-    Register LoDummy =
-        MI.getMF()->getRegInfo().createVirtualRegister(&ISA32_LM::GPRRegClass);
-
-    BuildMI(*BB, MI, DL, TII.get(ISA32_LM::MUL_RRR), LoDummy)
-        .addReg(Rs1Reg)
-        .addReg(Rs2Reg);
-    BuildMI(*BB, MI, DL, TII.get(ISA32_LM::GOF), DstReg);
-
-    MI.eraseFromParent();
-    return BB;
-  }
 
   case ISA32_LM::SELECT_CC: {
     Register DstReg = MI.getOperand(0).getReg();

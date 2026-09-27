@@ -75,6 +75,10 @@ private:
   SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSRA(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerUMUL_LOHI(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerMULHU(SDValue Op, SelectionDAG &DAG) const;
+  SDValue getCorrectedUnsignedHi(SDValue LHS, SDValue RHS, const SDLoc &DL,
+                                 SelectionDAG &DAG) const;
 };
 
 } // namespace llvm
