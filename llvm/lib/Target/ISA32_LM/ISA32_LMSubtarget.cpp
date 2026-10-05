@@ -22,7 +22,8 @@
 using namespace llvm;
 
 ISA32_LMSubtarget &
-ISA32_LMSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+ISA32_LMSubtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                   StringRef FS) {
   std::string CPUName = std::string(CPU);
   if (CPUName.empty())
     CPUName = "generic";
@@ -34,7 +35,11 @@ ISA32_LMSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) 
 ISA32_LMSubtarget::ISA32_LMSubtarget(const Triple &TT, StringRef CPU,
                                      StringRef FS, const TargetMachine &TM)
     : ISA32_LMGenSubtargetInfo(TT, CPU, /*TuneCPU=*/CPU, FS),
-      InstrInfo(initializeSubtargetDependencies(CPU, FS)),
-      FrameLowering(*this),
-      TLInfo(TM, *this),
-      TSInfo() {}
+      InstrInfo(initializeSubtargetDependencies(CPU, FS)), FrameLowering(*this),
+      TLInfo(TM, *this), TSInfo() {}
+
+void ISA32_LMSubtarget::initLibcallLoweringInfo(
+    LibcallLoweringInfo &Info) const {
+  Info.setLibcallImpl(RTLIB::UDIV_I32, RTLIB::impl___udivsi3);
+  Info.setLibcallImpl(RTLIB::UREM_I32, RTLIB::impl___umodsi3);
+}

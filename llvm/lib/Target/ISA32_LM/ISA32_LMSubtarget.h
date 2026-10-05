@@ -37,13 +37,14 @@ public:
   ISA32_LMSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
                     const TargetMachine &TM);
 
+  void initLibcallLoweringInfo(LibcallLoweringInfo &Info) const override;
+
   void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
-  ISA32_LMSubtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);
+  ISA32_LMSubtarget &initializeSubtargetDependencies(StringRef CPU,
+                                                     StringRef FS);
 
-  const ISA32_LMInstrInfo *getInstrInfo() const override {
-    return &InstrInfo;
-  }
+  const ISA32_LMInstrInfo *getInstrInfo() const override { return &InstrInfo; }
 
   const ISA32_LMFrameLowering *getFrameLowering() const override {
     return &FrameLowering;
