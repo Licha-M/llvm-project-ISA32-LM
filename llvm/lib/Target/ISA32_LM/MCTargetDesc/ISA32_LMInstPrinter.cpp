@@ -37,8 +37,7 @@ void ISA32_LMInstPrinter::printInst(const MCInst *MI, uint64_t Address,
                                     StringRef Annotation,
                                     const MCSubtargetInfo & /*STI*/,
                                     raw_ostream &O) {
-  // Intentar primero los alias (p.ej. CMP como alias de SUB_RRR con R0 como
-  // Rd).
+  // Intentar primero los alias (p.ej. CMP como alias de SUB_RRR con R0 como Rd).
   if (!printAliasInstr(MI, Address, O))
     printInstruction(MI, Address, O);
   printAnnotation(O, Annotation);
@@ -48,41 +47,40 @@ void ISA32_LMInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
+    // Sin prefijo — la sintaxis de ISA32_LM usa "R0", no "%R0" ni "$R0".
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
     O << Op.getImm();
-  } else if (Op.isExpr()) {
-    MAI.printExpr(O, *Op.getExpr());
   } else {
-    // Si llega un BasicBlock o GlobalAddress crudo arrastrado por el expansor,
-    // lo volcamos de forma segura mediante el printer genérico de LLVM
-    Op.print(O);
+    assert(Op.isExpr() && "Se esperaba una expresión");
+    MAI.printExpr(O, *Op.getExpr());
   }
 }
 
 // printImm16Operand — operando uimm16 (LDI, HLDI): sin signo, decimal.
 void ISA32_LMInstPrinter::printImm16Operand(const MCInst *MI, unsigned OpNo,
-                                            raw_ostream &O) {
-  const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isImm()) {
-    O << (Op.getImm() & 0xFFFF);
-  } else if (Op.isExpr()) {
-    MAI.printExpr(O, *Op.getExpr());
-  } else {
-    Op.print(O);
-  }
-}
-
-void ISA32_LMInstPrinter::printSImm16Operand(const MCInst *MI, unsigned OpNo,
                                              raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isImm()) {
+    // Mascarar a 16 bits sin signo para que valores negativos se vean correctamente.
+    O << (Op.getImm() & 0xFFFF);
+  } else {
+    assert(Op.isExpr() && "Se esperaba una expresión");
+    MAI.printExpr(O, *Op.getExpr());
+  }
+}
+
+// printSImm16Operand — operando simm16 (ADI, ADI_SLT, offsets LOD/STR): con signo, decimal.
+void ISA32_LMInstPrinter::printSImm16Operand(const MCInst *MI, unsigned OpNo,
+                                              raw_ostream &O) {
+  const MCOperand &Op = MI->getOperand(OpNo);
+  if (Op.isImm()) {
+    // Extender el signo de 16 bits y mostrar como decimal con signo.
     int16_t Imm = static_cast<int16_t>(Op.getImm() & 0xFFFF);
     O << static_cast<int32_t>(Imm);
-  } else if (Op.isExpr()) {
-    MAI.printExpr(O, *Op.getExpr());
   } else {
-    Op.print(O);
+    assert(Op.isExpr() && "Se esperaba una expresión");
+    MAI.printExpr(O, *Op.getExpr());
   }
 }
 
@@ -90,9 +88,9 @@ void ISA32_LMInstPrinter::printSImm16Operand(const MCInst *MI, unsigned OpNo,
 // Tabla de condiciones (de ISA32_LMInstrInfo.td y translateISA32LMCC):
 //   0=EQ  1=NE  2=N  3=NN  4=C  5=NC  6=OV  7=NOV
 void ISA32_LMInstPrinter::printBRHCondOperand(const MCInst *MI, unsigned OpNo,
-                                              raw_ostream &O) {
-  static const char *const CondNames[] = {"EQ", "NE", "N",  "NN",
-                                          "C",  "NC", "OV", "NOV"};
+                                               raw_ostream &O) {
+  static const char *const CondNames[] = {
+      "EQ", "NE", "N", "NN", "C", "NC", "OV", "NOV"};
   int64_t CC = MI->getOperand(OpNo).getImm();
   if (CC >= 0 && CC < 8)
     O << CondNames[CC];
@@ -100,10 +98,9 @@ void ISA32_LMInstPrinter::printBRHCondOperand(const MCInst *MI, unsigned OpNo,
     O << "<cond:" << CC << ">";
 }
 
-// printBrTargetOperand — destino simbólico de un salto (referencia a BB o
-// símbolo global).
+// printBrTargetOperand — destino simbólico de un salto (referencia a BB o símbolo global).
 void ISA32_LMInstPrinter::printBrTargetOperand(const MCInst *MI, unsigned OpNo,
-                                               raw_ostream &O) {
+                                                raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isExpr()) {
     MAI.printExpr(O, *Op.getExpr());

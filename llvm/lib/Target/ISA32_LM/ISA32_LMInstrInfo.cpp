@@ -164,71 +164,10 @@ bool ISA32_LMInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
-  case ISA32_LM::JMP32_PSEUDO: {
-    Register ScratchReg = ISA32_LM::R15;
-    const MachineOperand &TargetOp = MI.getOperand(0);
-
-    BuildMI(MBB, MI, DL, get(ISA32_LM::LDI), ScratchReg).addImm(0);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::HLDI), ScratchReg).add(TargetOp);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::ADI_SLT), ScratchReg)
-        .addReg(ScratchReg)
-        .add(TargetOp);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::JMP)).addReg(ScratchReg);
-
-    MI.eraseFromParent();
-    return true;
-  }
-
-  case ISA32_LM::CAL32_PSEUDO: {
-    Register ScratchReg = ISA32_LM::R15;
-    const MachineOperand &TargetOp = MI.getOperand(0);
-
-    BuildMI(MBB, MI, DL, get(ISA32_LM::LDI), ScratchReg).addImm(0);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::HLDI), ScratchReg).add(TargetOp);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::ADI_SLT), ScratchReg)
-        .addReg(ScratchReg)
-        .add(TargetOp);
-    BuildMI(MBB, MI, DL, get(ISA32_LM::CAL)).addReg(ScratchReg);
-
-    MI.eraseFromParent();
-    return true;
-  }
-
-  case ISA32_LM::BRH32_PSEUDO: {
-    Register ScratchReg = ISA32_LM::R15;
-
-    // De acuerdo a la definición de tu BRH32_PSEUDO:
-    // Operando 0 y 1: LHS y RHS de la comparación previa (pueden ser ignorados
-    // aquí) Operando 2: Código de condición inmediato (CC) Operando 3: Destino
-    // del salto (el BasicBlock)
-    const MachineOperand &CondOp = MI.getOperand(2);
-    const MachineOperand &TargetOp = MI.getOperand(3);
-
-    // 1) Ponemos el registro temporal a cero
-    BuildMI(MBB, MI, DL, get(ISA32_LM::LDI), ScratchReg).addImm(0);
-
-    // 2) Cargamos la parte alta de la dirección de la etiqueta del bloque
-    // básico
-    BuildMI(MBB, MI, DL, get(ISA32_LM::HLDI), ScratchReg).add(TargetOp);
-
-    // 3) Sumamos silenciosamente la parte baja de la dirección del bloque
-    // básico
-    BuildMI(MBB, MI, DL, get(ISA32_LM::ADI_SLT), ScratchReg)
-        .addReg(ScratchReg)
-        .add(TargetOp);
-
-    // 4) Emitimos la instrucción real física BRH
-    // Pasamos explícitamente el valor inmediato de la condición y el registro
-    // físico temporal r15
-    BuildMI(MBB, MI, DL, get(ISA32_LM::BRH))
-        .addImm(CondOp.getImm())
-        .addReg(ScratchReg);
-
-    MI.eraseFromParent();
-    return true;
-  }
-
-    return false; //[cite: 6]
+  case ISA32_LM::JMP32_PSEUDO: //[cite: 6]
+  case ISA32_LM::CAL32_PSEUDO: //[cite: 6]
+  case ISA32_LM::BRH32_PSEUDO: //[cite: 6]
+    return false;              //[cite: 6]
   }
 }
 

@@ -665,19 +665,12 @@ def DIVREM_PSEUDO : Pseudo<
 //   2) SLT ADI R15, low16
 //   3) CAL R15
 
-// Ponelo junto a uimm16 y simm16 en tu ISA32_LMInstrInfo.td
-def cal_target : Operand<i32> {
-  let PrintMethod = "printBrTargetOperand";
-}
-
-
 let isCall = 1, hasSideEffects = 1, Defs = [R1, R2, R3, R4, R5, R6, R7] in
 def CAL32_PSEUDO : Pseudo<
     (outs),
-    (ins cal_target:$target), // <-- CORREGIDO CON EL NUEVO TIPO
+    (ins i32imm:$target),
     "# CAL32 $target",
     [(isa32lm_call tglobaladdr:$target)]>;
-
 
 // ─── Branch condicional con dirección de 32 bits ──────────────────────────
 //
@@ -689,7 +682,7 @@ def CAL32_PSEUDO : Pseudo<
 let isTerminator = 1, isBranch = 1 in
 def BRH32_PSEUDO : Pseudo<
     (outs),
-    (ins GPR:$lhs, GPR:$rhs, i32imm:$cc, brh_target:$dst), // Asegurarse que el destino sea brh_target
+    (ins GPR:$lhs, GPR:$rhs, i32imm:$cc, brh_target:$dst),
     "# BRH32 $lhs, $rhs, $cc, $dst",
     [(isa32lm_brcc i32:$lhs, i32:$rhs, i32:$cc, bb:$dst)]>;
 
