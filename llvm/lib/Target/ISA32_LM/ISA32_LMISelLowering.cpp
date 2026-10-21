@@ -170,8 +170,18 @@ ISA32_LMTargetLowering::ISA32_LMTargetLowering(const TargetMachine &TM,
   setLoadExtAction(ISD::SEXTLOAD, MVT::i32, MVT::i16, Expand);
   // ── Operaciones Atómicas ─────────────────────────────────────────────────
   setMaxAtomicSizeInBitsSupported(0);
+
+  // Sin libc en este entorno: no hay memcpy/memmove/memset runtime
+  // disponibles. Forzamos a LLVM a expandir SIEMPRE estas copias inline
+  // (loads/stores), nunca como llamada a función externa.
+  MaxStoresPerMemcpy = MaxStoresPerMemcpyOptSize = 64;
+  MaxStoresPerMemmove = MaxStoresPerMemmoveOptSize = 64;
+  MaxStoresPerMemset = MaxStoresPerMemsetOptSize = 64;
+
   setOperationAction(ISD::ATOMIC_LOAD, MVT::i32, Expand);
   setOperationAction(ISD::ATOMIC_STORE, MVT::i32, Expand);
+
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32, Expand);
 }
 
 const char *ISA32_LMTargetLowering::getTargetNodeName(unsigned Opcode) const {

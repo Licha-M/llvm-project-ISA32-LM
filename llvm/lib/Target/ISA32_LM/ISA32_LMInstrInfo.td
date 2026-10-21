@@ -726,11 +726,11 @@ def : Pat<(i32 uimm16_pat:$imm), (LDI (i32 uimm16_pat:$imm))>;
 
 // ─── Accesos a memoria con offset ────────────────────────────────────────
 
-def : Pat<(i32 (extloadi8 (add i32:$rs1_base, simm16_pat:$offset))),
-          (LOD_CHAR GPR:$rs1_base, $offset)>;
+// def : Pat<(i32 (extloadi8 (add i32:$rs1_base, simm16_pat:$offset))),
+//           (LOD_CHAR GPR:$rs1_base, simm16:$offset)>;
 
-def : Pat<(i32 (extloadi16 (add i32:$rs1_base, simm16_pat:$offset))),
-          (LOD_SHORT GPR:$rs1_base, $offset)>;
+// def : Pat<(i32 (extloadi16 (add i32:$rs1_base, simm16_pat:$offset))),
+//           (LOD_SHORT GPR:$rs1_base, simm16:$offset)>;
 
 // ─── Accesos a memoria sin offset (offset = 0) ───────────────────────────
 
