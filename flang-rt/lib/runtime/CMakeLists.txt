@@ -193,6 +193,7 @@ set(gpu_sources
   type-info.cpp
   utf.cpp
   work-queue.cpp
+  stl-overrides.cpp
   complex-powi.cpp
   reduce.cpp
   reduction.cpp
@@ -314,27 +315,12 @@ if (NOT FLANG_RT_ENABLE_STATIC AND NOT FLANG_RT_ENABLE_SHARED)
   return ()
 endif ()
 
-if ("${LLVM_DEFAULT_TARGET_TRIPLE}" MATCHES "^amdgcn|^nvptx")
+if ("${LLVM_DEFAULT_TARGET_TRIPLE}" MATCHES "^amdgpu|^amdgcn|^nvptx")
   set(sources ${gpu_sources})
 elseif(FLANG_RT_EXPERIMENTAL_OFFLOAD_SUPPORT STREQUAL "CUDA")
   set(sources ${supported_sources})
 else ()
   set(sources ${supported_sources} ${host_sources} ${f128_sources})
-endif ()
-
-# Include the Fortran OpenMP module implementation (omp_lib.o) in
-# libflang_rt.runtime when the OpenMP runtime is also being built.
-# Skip for GPU-default targets: omp_lib is a host-side Fortran module.
-set(_flang_rt_libomp_mod_objects "")
-if (TARGET libomp-mod AND NOT "${LLVM_DEFAULT_TARGET_TRIPLE}" MATCHES "^amdgcn|^nvptx"
-    AND NOT FLANG_RT_EXPERIMENTAL_OFFLOAD_SUPPORT STREQUAL "CUDA")
-  set(_flang_rt_libomp_mod_objects "$<TARGET_OBJECTS:libomp-mod>")
-  # When both static and shared are built, sources go through
-  # obj.flang_rt.runtime and nested $<TARGET_OBJECTS:libomp-mod> does not
-  # end up in libflang_rt.runtime.a.
-  if (NOT (FLANG_RT_ENABLE_STATIC AND FLANG_RT_ENABLE_SHARED))
-    list(APPEND sources "${_flang_rt_libomp_mod_objects}")
-  endif ()
 endif ()
 
 
@@ -347,20 +333,6 @@ if (NOT WIN32)
   )
 
   enable_cuda_compilation(flang_rt.runtime "${sources}")
-
-  if (_flang_rt_libomp_mod_objects AND FLANG_RT_ENABLE_STATIC AND FLANG_RT_ENABLE_SHARED)
-    if (TARGET flang_rt.runtime.static)
-      target_sources(flang_rt.runtime.static PRIVATE ${_flang_rt_libomp_mod_objects})
-    endif ()
-    if (TARGET flang_rt.runtime.shared)
-      target_sources(flang_rt.runtime.shared PRIVATE ${_flang_rt_libomp_mod_objects})
-    endif ()
-  endif ()
-
-  if (TARGET libomp-mod AND TARGET flang_rt.runtime.shared AND TARGET omp)
-    # Resolve bind(c) references from omp_lib when building the shared runtime.
-    target_link_libraries(flang_rt.runtime.shared PUBLIC omp)
-  endif ()
 
   # Select a default runtime, which is used for unit and regression tests.
   if (TARGET flang_rt.runtime.default)
