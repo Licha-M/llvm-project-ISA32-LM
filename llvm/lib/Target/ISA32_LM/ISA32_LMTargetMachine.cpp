@@ -21,7 +21,8 @@
 
 using namespace llvm;
 
-extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeISA32_LMTarget() {
+extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void
+LLVMInitializeISA32_LMTarget() {
   RegisterTargetMachine<ISA32_LMTargetMachine> X(getTheISA32_LMTarget());
 }
 
@@ -46,8 +47,7 @@ ISA32_LMTargetMachine::ISA32_LMTargetMachine(
     std::optional<CodeModel::Model> CodeModel, CodeGenOptLevel OptLevel,
     bool JIT)
     : CodeGenTargetMachineImpl(
-          T, computeDataLayout(), TT, Cpu, FeatureString, Options,
-          getEffectiveRelocModel(RM),
+          T, TT, Cpu, FeatureString, Options, getEffectiveRelocModel(RM),
           getEffectiveCodeModel(CodeModel, CodeModel::Small), OptLevel),
       Subtarget(TT, Cpu, FeatureString, *this),
       TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
@@ -65,13 +65,13 @@ public:
   }
 
   bool addInstSelector() override {
-    addPass(createISA32_LMISelDagLegacyPass(getISA32_LMTargetMachine(), getOptLevel()));
+    addPass(createISA32_LMISelDagLegacyPass(getISA32_LMTargetMachine(),
+                                            getOptLevel()));
     return false;
   }
 };
 } // namespace
 
-TargetPassConfig *
-ISA32_LMTargetMachine::createPassConfig(PassManagerBase &PM) {
+TargetPassConfig *ISA32_LMTargetMachine::createPassConfig(PassManagerBase &PM) {
   return new ISA32_LMPassConfig(*this, PM);
 }

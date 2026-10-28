@@ -466,8 +466,17 @@ static std::string computeVEDataLayout(const Triple &T) {
          "v1024:64:64-v2048:64:64-v4096:64:64-v8192:64:64-v16384:64:64";
 }
 
+static std::string computeISA32_LMDataLayout(const Triple &TT) {
+  // Little-endian, ELF mangling, punteros de 32 bits,
+  // i64 alineado a 32 bits, enteros nativos de 32 bits, pila alineada a 32
+  // bits.
+  return "e-m:e-p:32:32-i64:32-n32-S32";
+}
+
 std::string Triple::computeDataLayout(StringRef ABIName) const {
   switch (getArch()) {
+  case Triple::isa32_lm:
+    return computeISA32_LMDataLayout(*this);
   case Triple::arm:
   case Triple::armeb:
   case Triple::thumb:
